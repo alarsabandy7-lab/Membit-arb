@@ -32,4 +32,4 @@ class MembitSentiment:
         # Placeholder for scoring logic: -0.1 (Bearish) to +0.1 (Bullish)
         # This weight shifts the Frank-Wolfe target mu
         return np.clip(np.mean(embeddings) * 0.1, -0.1, 0.1)
-￼Enter
+
