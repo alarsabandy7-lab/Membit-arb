@@ -1,0 +1,35 @@
+import numpy as np
+from sentence_transformers import SentenceTransformer
+from sklearn.cluster import HDBSCAN
+
+class MembitSentiment:
+    def __init__(self, model_name='all-MiniLM-L6-v2'):
+        # Load a lightweight transformer for speed
+        self.encoder = SentenceTransformer(model_name)
+        self.clusterer = HDBSCAN(min_cluster_size=5)
+        self.sentiment_memory = []
+
+    def process_signals(self, texts):
+        """
+        Converts raw text into sentiment clusters and returns a bias weight.
+        """
+        if not texts:
+            return 0.0
+
+        # 1. Generate Vector Embeddings
+        embeddings = self.encoder.encode(texts)
+
+        # 2. Cluster the signals (Detecting the 'Membit')
+        labels = self.clusterer.fit_predict(embeddings)
+
+        # 3. Analyze Cluster Direction (Simplified Sentiment Logic)
+        # In a real scenario, you'd score each cluster centroid
+        avg_sentiment = self._analyze_clusters(embeddings, labels)
+        
+        return avg_sentiment
+
+    def _analyze_clusters(self, embeddings, labels):
+        # Placeholder for scoring logic: -0.1 (Bearish) to +0.1 (Bullish)
+        # This weight shifts the Frank-Wolfe target mu
+        return np.clip(np.mean(embeddings) * 0.1, -0.1, 0.1)
+￼Enter
