@@ -1,12 +1,28 @@
-def update_risk_parameter(pnl, slippage):
-    global KELLY_FRACTION
-    if pnl < 0:
-        if slippage > MAX_SLIPPAGE:
-            # If loss is due to illiquidity, reduce aggressiveness
-            KELLY_FRACTION *= 0.8
-        else:
-            # If loss is due to mathematical bias, reduce more drastically
-            KELLY_FRACTION *= 0.5
-    else:
-        # If winning, gradually increase confidence to a safe cap
-        KELLY_FRACTION = min(0.2, KELLY_FRACTION + 0.01)
+from core.engine import QuantEngine
+from core.sentiment import MembitSentiment
+from config import ALPHA, KELLY_FRACTION
+
+def main_loop():
+    engine = QuantEngine(ALPHA, KELLY_FRACTION)
+    membit = MembitSentiment()
+
+    while True:
+        # Get raw data
+        prices = api.get_market_prices()
+        raw_texts = api.get_social_feed()
+
+        # Step 1: Sentiment Instinct (Membit)
+        sentiment_bias = membit.process_signals(raw_texts)
+
+        # Step 2: Math Logic (Frank-Wolfe)
+        # The bias shifts the target_mu before checking Kelly
+        target_mu = solver.solve_with_bias(prices, sentiment_bias)
+        fw_gap = solver.get_current_gap()
+
+        # Step 3: Execution Decision
+        position_size = engine.get_position_size(
+            prices, target_mu, fw_gap, current_equity
+        )
+
+        if position_size > 0:
+            execute_trade(position_size)
