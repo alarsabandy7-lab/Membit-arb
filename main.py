@@ -1,28 +1,80 @@
-from core.engine import QuantEngine
-from core.sentiment import MembitSentiment
-from config import ALPHA, KELLY_FRACTION
+import time
+import logging
+from core.engine import GodModeEngine
+from utils.api_connect import PolymarketAPI, SocialScraper
 
-def main_loop():
-    engine = QuantEngine(ALPHA, KELLY_FRACTION)
-    membit = MembitSentiment()
+# 1. SETUP LOGGING (For GitHub Audit Transparency)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[logging.FileHandler("data/bot_runtime.log"), logging.StreamHandler()]
+)
+
+def main():
+    # Initial Configuration
+    config = {
+        'alpha': 0.9,
+        'kelly_fraction': 0.15,
+        'initial_capital': 1000.0,  # Starting Balance
+        'min_edge': 0.015
+    }
+
+    # Initialize Engine and Connectors
+    bot = GodModeEngine(config)
+    poly_api = PolymarketAPI()
+    social_api = SocialScraper()
+
+    logging.info("--- GOD-MODE ENGINE ACTIVATED ---")
 
     while True:
-        # Get raw data
-        prices = api.get_market_prices()
-        raw_texts = api.get_social_feed()
+        try:
+            # A. DATA INGESTION
+            # Fetching real-time Order Book, Prices, and Sentiment
+            market_data = poly_api.get_market_snapshot()
+            order_book = poly_api.get_order_book()
+            raw_social_signals = social_api.fetch_latest_signals()
+            current_balance = poly_api.get_balance()
 
-        # Step 1: Sentiment Instinct (Membit)
-        sentiment_bias = membit.process_signals(raw_texts)
+            # B. UNIFIED SOLVER (The 6 Elements)
+            decision = bot.unified_solver(
+                market_data, 
+                raw_social_signals, 
+                current_balance, 
+                order_book
+            )
 
-        # Step 2: Math Logic (Frank-Wolfe)
-        # The bias shifts the target_mu before checking Kelly
-        target_mu = solver.solve_with_bias(prices, sentiment_bias)
-        fw_gap = solver.get_current_gap()
+            # C. EXECUTION GATE
+            if decision['action'] == 'EXECUTE':
+                logging.info(f"SIGNAL DETECTED: Placing order of size {decision['size']:.2f}")
+                
+                # Execute Trade via API
+                execution_report = poly_api.place_order(
+                    side='BUY', 
+                    amount=decision['size']
+                )
 
-        # Step 3: Execution Decision
-        position_size = engine.get_position_size(
-            prices, target_mu, fw_gap, current_equity
-        )
+                # D. BAYESIAN LEARNING (The Memory)
+                # Update the bot's internal brain based on execution results
+                bot.update_brain(
+                    pnl=execution_report['realized_pnl'],
+                    slippage_realized=execution_report['slippage']
+                )
+                
+                logging.info(f"LEARNING UPDATE: New Alpha: {bot.alpha:.4f}, New Kelly F: {bot.kelly_f:.4f}")
 
-        if position_size > 0:
-            execute_trade(position_size)
+            else:
+                logging.debug("HEARTBEAT: Scanning for Edge...")
+
+            # E. ADAPTIVE SLEEP
+            # High-frequency scanning with rate-limit protection
+            time.sleep(1)
+
+        except KeyboardInterrupt:
+            logging.info("Shutting down gracefully...")
+            break
+        except Exception as e:
+            logging.error(f"CRITICAL ERROR: {str(e)}")
+            time.sleep(5) # Cooldown on error
+
+if __name__ == "__main__":
+    main()
